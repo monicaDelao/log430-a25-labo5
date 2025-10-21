@@ -106,20 +106,46 @@ def modify_order(order_id: int, is_paid: bool):
 
 def request_payment_link(order_id, total_amount, user_id):
     payment_id = 0
+    
+    # Conversion et vérification des types
+    user_id = int(user_id)
+    order_id = int(order_id)
+    total_amount = float(total_amount)
+    
+    # Debug: vérifier les types avant envoi
+    logger.debug(f"Types avant envoi: order_id={type(order_id)}, user_id={type(user_id)}, total_amount={type(total_amount)}")
+    logger.debug(f"Valeurs: order_id={order_id}, user_id={user_id}, total_amount={total_amount}")
+    
     payment_transaction = {
         "user_id": user_id,
         "order_id": order_id,
         "total_amount": total_amount
     }
 
-    # TODO: Requête à POST /payments
-    print("")
-    response_from_payment_service = {}
+    try:
+        # Appel POST au service de paiement via KrakenD API Gateway
+        response_from_payment_service = requests.post(
+            'http://api-gateway:8080/payments-api/payments',
+            json=payment_transaction,
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        logger.debug(f"Status Code reçu: {response_from_payment_service.status_code}")
+        
+        if response_from_payment_service.status_code == 200:
+            response_data = response_from_payment_service.json()
+            payment_id = response_data.get('payment_id', 0)
+            logger.debug(f"Payment créé avec succès, ID: {payment_id}")
+        else:
+            logger.error(f"Erreur lors de la création du paiement: {response_from_payment_service.status_code}")
+            logger.error(f"Réponse: {response_from_payment_service.text}")
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Erreur de communication avec le service de paiement: {e}")
+    except Exception as e:
+        logger.error(f"Erreur inattendue lors de la création du paiement: {e}")
 
-    if True: # if response.ok
-        print(f"ID paiement: {payment_id}")
-
-    return f"http://api-gateway:8080/payments-api/payments/process/{payment_id}" 
+    return f"http://api-gateway:8080/payments-api/payments/{payment_id}" 
 
 def delete_order(order_id: int):
     """Delete order in MySQL, keep Redis in sync"""
